@@ -1,11 +1,17 @@
 #pragma once
 #define MQTT_HOST          "127.0.0.1"
 #define MQTT_PORT          1883
-#define MQTT_KEEPALIVE     30
-#define MQTT_QOS           1
+#define MQTT_KEEPALIVE     60
 
-// Primer zone i ID-eva
-#define ZONE               "zone1"
+// Wildcard subscribe (više zona)
+#define SUB_PATTERN_TEMP "garage/+/sensors/temp"
+#define SUB_PATTERN_CO   "garage/+/sensors/co"
+#define SUB_PATTERN_VIB  "garage/+/sensors/vibration"
+
+#define TEMP_BAD_C     60.0
+#define CO_BAD_PPM     100.0
+#define VIB_BAD_G      0.60
+#define TILT_BAD_DEG   5.0
 
 // SSDP
 #define SSDP_ADDR          "239.255.255.250"

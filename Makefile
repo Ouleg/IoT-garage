@@ -1,20 +1,26 @@
-CC=gcc
-CFLAGS=-O2 -Iinclude
-LDFLAGS=-lmosquitto
+APP=garage_ctrl
 
-SRC_CTRL=controller/controller.c controller/ssdp_ctrl.c controller/registry.c
-BIN=bin/iot-controller
+SRC=apps/cli.c \
+    controller/controller.c \
+    controller/registry.c \
+    actuators/actuators.c \
+    sensors/sensors.c \
+    ssdp_dev.c
 
-actuator: actuators/actuators.c sensors/ssdp_dev.c
-	$(CC) $^ -o bin/actuator $(CFLAGS) $(LDFLAGS)
+INC=include controller actuators sensors
+CFLAGS=-O2 -Wall $(addprefix -I,$(INC))
 
-.PHONY: all clean
+CFLAGS  := -O2 -Wall -Iinclude -Icontroller -Iactuators -Isensors
+CFLAGS  += $(shell pkg-config --cflags libmosquitto)
+CFLAGS  += -I/usr/include/cjson      # <-- OVO DODAJ
+LDFLAGS := $(shell pkg-config --libs libmosquitto) -lcjson
 
-all: $(BIN)
 
-$(BIN): $(SRC_CTRL)
-	@mkdir -p bin
-	$(CC) $(SRC_CTRL) -o $(BIN) $(CFLAGS) $(LDFLAGS)
+LIBS=`pkg-config --libs --cflags libmosquitto` -lcjson
+
+all: $(APP)
+$(APP): $(SRC)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 clean:
-	rm -rf bin
+	rm -f $(APP)

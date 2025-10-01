@@ -1,57 +1,110 @@
 // actuators.c
-// gcc actuators.c -o actuators -lmosquitto -ljansson
-
-#include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <time.h>
 #include <mosquitto.h>
-#include "config.h"
-#include "protocol.h"
+#include "cJSON.h"
+#include "../include/protocol.h"   // očekuje se TOPIC_CMD_FMT i eventualno JSON_ID="id"
 
-static const char* DEV_ID   = "zone1-fan-5678";
-static const char* Z = ZONE;
-static struct mosquitto* mq = NULL;
-static int fan_state = 0, fan_speed = 0;
+static struct mosquitto* gM = NULL;
 
-static void on_cmd(struct mosquitto* m, void* ud, const struct mosquitto_message* msg)
-{
-    // očekujemo JSON: {"state":"ON","speed":2}
-    if (!msg || !msg->payload) return;
-    if (strstr((const char*)msg->payload, "\"ON\""))  { fan_state=1; }
-    if (strstr((const char*)msg->payload, "\"OFF\"")) { fan_state=0; }
-    if (strstr((const char*)msg->payload, "\"speed\":")) { fan_speed=2; } // demo
-
-    // potvrdi stanje
-    char topic[128]; snprintf(topic, sizeof topic, TOPIC_STATE_FMT, Z, "fan");
-    char payload[128];
-    snprintf(payload, sizeof payload,
-             "{\"id\":\"%s\",\"group\":\"actuators\",\"FanService\":{\"State\":\"%s\",\"Speed\":\"%d\"}}",
-              DEV_ID, fan_state?"ON":"OFF", fan_speed);
-    mosquitto_publish(mq, NULL, topic, (int)strlen(payload), payload, MQTT_QOS, false);
-    printf("[ACTUATOR] Fan -> %s speed=%d\n", fan_state?"ON":"OFF", fan_speed);
+// Jedinstveni helper: objavi JSON i očisti resurse.
+// retain: 0/1
+static void publish_json(const char* topic, cJSON* obj, int retain){
+    if(!topic || !obj) { if(obj) cJSON_Delete(obj); return; }
+    char* s = cJSON_PrintUnformatted(obj);
+    cJSON_Delete(obj);
+    if(!s) return;
+    if(gM){
+        // QoS=1, retain po potrebi
+        mosquitto_publish(gM, NULL, topic, (int)strlen(s), s, 1, retain ? true : false);
+    }
+    free(s);
 }
 
-int main()
-{
-    extern void ssdp_dev_loop(const char* dev_id, const char* st_urn);
+void act_init(struct mosquitto* m){ gM = m; }
 
-    mosquitto_lib_init();
-    mq = mosquitto_new(DEV_ID, true, NULL);
-    char status_topic[128];
-    snprintf(status_topic, sizeof status_topic, TOPIC_STATUS_FMT, DEV_ID);
-    mosquitto_will_set(mq, status_topic, 7, "offline", MQTT_QOS, true);
+// ============ FAN ============
+void act_set_fan(const char* zone, const char* id, int on){
+    char t_state[128], t_cmd[128];
+    const char* st = on ? "ON" : "OFF";
 
-    mosquitto_message_callback_set(mq, on_cmd);
+    // state: garage/<zone>/state/fan/<id>
+    snprintf(t_state, sizeof t_state, "garage/%s/state/fan/%s", zone, id);
+    // cmd:   garage/<zone>/cmd/fan
+    snprintf(t_cmd,   sizeof t_cmd,   TOPIC_CMD_FMT,            zone, "fan");
 
-    if (mosquitto_connect(mq, MQTT_HOST, MQTT_PORT, MQTT_KEEPALIVE) == MOSQ_ERR_SUCCESS) {
-        mosquitto_publish(mq, NULL, status_topic, 6, "online", MQTT_QOS, true);
-        char cmd_topic[128]; snprintf(cmd_topic, sizeof cmd_topic, TOPIC_CMD_FMT, Z, "fan");
-        mosquitto_subscribe(mq, NULL, cmd_topic, MQTT_QOS);
-    }
+    cJSON *s = cJSON_CreateObject();
+    cJSON_AddStringToObject(s, "id", id);
+    cJSON_AddStringToObject(s, "state", st);
+    cJSON_AddNumberToObject(s, "ts", (double)time(NULL));
+    publish_json(t_state, s, 0);
 
-    for (;;) {
-        mosquitto_loop(mq, 100, 1);
-        ssdp_dev_loop(DEV_ID, ST_ACTUATOR_FAN);
-        usleep(100*1000);
-    }
-    return 0;
+    cJSON *c = cJSON_CreateObject();
+    cJSON_AddStringToObject(c, "id", id);
+    cJSON_AddStringToObject(c, "state", st);
+    publish_json(t_cmd, c, 0);
+}
+
+// ============ ALARM ============
+void act_set_alarm(const char* zone, const char* id, int on){
+    char t_state[128], t_cmd[128];
+    const char* st = on ? "ON" : "OFF";
+
+    snprintf(t_state, sizeof t_state, "garage/%s/state/alarm/%s", zone, id);
+    snprintf(t_cmd,   sizeof t_cmd,   TOPIC_CMD_FMT,            zone, "alarm");
+
+    cJSON *s = cJSON_CreateObject();
+    cJSON_AddStringToObject(s, "id", id);
+    cJSON_AddStringToObject(s, "state", st);
+    cJSON_AddNumberToObject(s, "ts", (double)time(NULL));
+    publish_json(t_state, s, 0);
+
+    cJSON *c = cJSON_CreateObject();
+    cJSON_AddStringToObject(c, "id", id);
+    cJSON_AddStringToObject(c, "state", st);
+    publish_json(t_cmd, c, 0);
+}
+
+// ============ FIRE EXTINGUISHER ============
+void act_set_fire_ext(const char* zone, const char* id, int on){
+    char t_state[128], t_cmd[128];
+    const char* st = on ? "ON" : "OFF";
+
+    snprintf(t_state, sizeof t_state, "garage/%s/state/fire_ext/%s", zone, id);
+    snprintf(t_cmd,   sizeof t_cmd,   TOPIC_CMD_FMT,                 zone, "fire_ext");
+
+    cJSON *s = cJSON_CreateObject();
+    cJSON_AddStringToObject(s, "id", id);
+    cJSON_AddStringToObject(s, "state", st);
+    cJSON_AddNumberToObject(s, "ts", (double)time(NULL));
+    publish_json(t_state, s, 0);
+
+    cJSON *c = cJSON_CreateObject();
+    cJSON_AddStringToObject(c, "id", id);
+    cJSON_AddStringToObject(c, "state", st);
+    publish_json(t_cmd, c, 0);
+}
+
+// ============ BARRIER (global entry) ============
+void act_set_barrier_down(const char* id, int down){
+    char t_state[128], t_cmd[128];
+    const char* st = down ? "DOWN" : "UP";
+
+    // state: garage/entry/state/barrier/<id>
+    snprintf(t_state, sizeof t_state, "garage/entry/state/barrier/%s", id);
+    // cmd:   garage/entry/cmd/barrier
+    snprintf(t_cmd,   sizeof t_cmd,   "garage/entry/cmd/%s", "barrier");
+
+    cJSON *s = cJSON_CreateObject();
+    cJSON_AddStringToObject(s, "id", id);
+    cJSON_AddStringToObject(s, "state", st);
+    cJSON_AddNumberToObject(s, "ts", (double)time(NULL));
+    publish_json(t_state, s, 0);
+
+    cJSON *c = cJSON_CreateObject();
+    cJSON_AddStringToObject(c, "id", id);
+    cJSON_AddStringToObject(c, "state", st);
+    publish_json(t_cmd, c, 0);
 }
