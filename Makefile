@@ -1,26 +1,32 @@
-APP=garage_ctrl
+CC := cc
+CFLAGS := -O2 -Wall -pthread
+INCLUDES := -Iinclude -I/usr/include/cjson
+PKG := $(shell pkg-config --cflags --libs libmosquitto)
+LIBS := -lcjson
 
-SRC=apps/cli.c \
-    controller/controller.c \
-    controller/registry.c \
-    actuators/actuators.c \
-    sensors/sensors.c \
-    ssdp_dev.c
+BIN := bin
+CTRL := $(BIN)/garage_controller
+SENS := $(BIN)/sensors
+SIM  := $(BIN)/garage_sim
 
-INC=include controller actuators sensors
-CFLAGS=-O2 -Wall $(addprefix -I,$(INC))
+all: $(CTRL) $(SENS) $(SIM)
 
-CFLAGS  := -O2 -Wall -Iinclude -Icontroller -Iactuators -Isensors
-CFLAGS  += $(shell pkg-config --cflags libmosquitto)
-CFLAGS  += -I/usr/include/cjson      # <-- OVO DODAJ
-LDFLAGS := $(shell pkg-config --libs libmosquitto) -lcjson
+$(BIN):
+	mkdir -p $(BIN)
 
+# Kontroler (NE uključuje sensors.c)
+$(CTRL): controller/controller.c actuators/actuators.c | $(BIN)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(PKG) $(LIBS)
 
-LIBS=`pkg-config --libs --cflags libmosquitto` -lcjson
+# Senzori (sensors.c već ima main kad NEMA BUILD_AS_LIB)
+$(SENS): sensors/sensors.c ssdp_dev.c | $(BIN)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(PKG) $(LIBS)
 
-all: $(APP)
-$(APP): $(SRC)
-	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+# Simulator (one-click scenarijo: senzori + echo state)
+$(SIM): garage_sim.c | $(BIN)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(PKG) $(LIBS)
 
 clean:
-	rm -f $(APP)
+	rm -rf $(BIN)
+
+.PHONY: all clean

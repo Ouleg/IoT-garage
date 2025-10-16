@@ -123,18 +123,18 @@ int sensors_run(sensor_type_t type, const char* zone, const char* dev_id, int pe
             int co   = (t/121) % 2 ? (160 - (t%121)) : base;
             if(co < 0) co = 0; if(co > 1000) co = 1000;
             publish_state_co(zone, dev_id, co);
-            ssdp_alive_tick(dev_id, ST_SENSOR_CO, t, period_sec);
+            ssdp_alive_tick(dev_id, SENSOR_CO, t, period_sec);
         } else if(type == SENSOR_TEMP){
             double v = 35.0 + 30.0 * ((t % 40) / 39.0); /* 35..65 */
             publish_state_temp(zone, dev_id, v);
-            ssdp_alive_tick(dev_id, ST_SENSOR_TEMP, t, period_sec);
+            ssdp_alive_tick(dev_id, SENSOR_TEMP, t, period_sec);
         } else {
             double vib  = (t % 20 == 10) ? 0.8 : (0.05 + 0.10 * ((t % 10) / 9.0));
             double tilt = (t % 30 == 15) ? 6.0 : (0.5 + 1.0 * ((t % 8) / 7.0));
             if(vib < 0.0) vib = 0.0; if(vib > 2.0) vib = 2.0;
             if(tilt < 0.0) tilt = 0.0; if(tilt > 30.0) tilt = 30.0;
             publish_state_vib(zone, dev_id, vib, tilt);
-            ssdp_alive_tick(dev_id, ST_SENSOR_VIB, t, period_sec);
+            ssdp_alive_tick(dev_id, SENSOR_VIB, t, period_sec);
         }
 
         mosquitto_loop(mq, 50, 1);
