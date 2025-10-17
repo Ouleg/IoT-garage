@@ -5,6 +5,24 @@
 #include "../controller/controller.h"
 
 int main(void){
+
+    const char *host = "localhost";
+    const char *zone = "zone1";
+    int port = 1883;
+
+    /* parse argv */
+    for (int i=1; i<argc; ++i) {
+        if (!strcmp(argv[i], "--host") && i+1<argc) host = argv[++i];
+        else if (!strcmp(argv[i], "--port") && i+1<argc) port = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--zone") && i+1<argc) zone = argv[++i];
+    }
+
+    /* posle connect-a: */
+    char topic[128];
+    snprintf(topic, sizeof(topic), "garage/%s/sensors/#", zone);
+    mosquitto_subscribe(mosq, NULL, topic, 0);
+
+
     // SSDP announce (vidljiv kao kontroler)
     ssdp_init();
     char loc[256];

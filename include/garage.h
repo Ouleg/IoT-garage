@@ -15,6 +15,8 @@
 // ID-jevi (da se poklope sa kontrolerom)
 #define SIM_FAN_ID   "fan_1"
 #define SIM_ALARM_ID "alarm_1"
+#define SIM_BARRIER_ID "barrier_1"
+
 
 // Helper makroi
 #define CLAMP(v, lo, hi) ((v)<(lo)?(lo):((v)>(hi)?(hi):(v)))

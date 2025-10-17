@@ -67,30 +67,10 @@ void act_set_alarm(const char* zone, const char* id, int on){
     publish_json(t_cmd, c, 0);
 }
 
-// ============ FIRE EXTINGUISHER ============
-void act_set_fire_ext(const char* zone, const char* id, int on){
-    char t_state[128], t_cmd[128];
-    const char* st = on ? "ON" : "OFF";
-
-    snprintf(t_state, sizeof t_state, "garage/%s/state/fire_ext/%s", zone, id);
-    snprintf(t_cmd,   sizeof t_cmd,   TOPIC_CMD_FMT,                 zone, "fire_ext");
-
-    cJSON *s = cJSON_CreateObject();
-    cJSON_AddStringToObject(s, "id", id);
-    cJSON_AddStringToObject(s, "state", st);
-    cJSON_AddNumberToObject(s, "ts", (double)time(NULL));
-    publish_json(t_state, s, 0);
-
-    cJSON *c = cJSON_CreateObject();
-    cJSON_AddStringToObject(c, "id", id);
-    cJSON_AddStringToObject(c, "state", st);
-    publish_json(t_cmd, c, 0);
-}
-
 // ============ BARRIER (global entry) ============
 void act_set_barrier_down(const char* id, int down){
     char t_state[128], t_cmd[128];
-    const char* st = down ? "DOWN" : "UP";
+    const char* st = down ? "UP" : "DOWN";
 
     // state: garage/entry/state/barrier/<id>
     snprintf(t_state, sizeof t_state, "garage/entry/state/barrier/%s", id);

@@ -11,6 +11,7 @@
 #define TEMP_THRESHOLD_C     65.0
 #define CO_THRESHOLD_PPM     150.0
 #define TILT_THRESHOLD_DEG   10.0
+#define BARRIER_HOLD_SEC     10
 
 // Heartbeat: ako nema svežih merenja duže od…
 #define SENSOR_STALE_SEC       15

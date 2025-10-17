@@ -19,6 +19,8 @@ static struct mosquitto* gM = NULL;
 static const char* ZONE   = DEFAULT_ZONE;
 static const char* FAN_ID = SIM_FAN_ID;
 static const char* ALM_ID = SIM_ALARM_ID;
+static const char* BAR_ID = SIM_BARRIER_ID;
+
 
 static void on_sigint(int s){ (void)s; g_run = 0; }
 
@@ -56,6 +58,16 @@ static void on_message(struct mosquitto* m, void* obj, const struct mosquitto_me
         mosquitto_publish(gM, NULL, t_state, (int)strlen(payload), payload, 1, 0);
         fprintf(stdout, "[sim-actuator] ALARM state echoed: %s\n", payload);
     }
+    // barrier cmd: garage/<zone>/cmd/barrier
+    else if (strstr(topic, "/cmd/barrier")) {
+        char t_state[128];
+        snprintf(t_state, sizeof t_state, "garage/%s/state/barrier/%s", ZONE, BAR_ID);
+        mosquitto_publish(gM, NULL, t_state, (int)strlen(payload), payload, 1, 0);
+        fprintf(stdout, "[sim-actuator] BARRIER state echoed: %s\n", payload);
+    }
+
+
+
 }
 
 /* ========== Sensor publishers (identičan format tvom sensors.c) ========== */
@@ -163,13 +175,15 @@ int main(int argc, char** argv){
     int port = MQTT_PORT;
     const char* zone = DEFAULT_ZONE;
 
-    // Flags: --host --port --zone --fan --siren
+    // Flags: --host --port --zone --fan --alarm --barier
     for(int i=1;i<argc;i++){
         if(strcmp(argv[i],"--host")==0 && i+1<argc) host = argv[++i];
         else if(strcmp(argv[i],"--port")==0 && i+1<argc) port = atoi(argv[++i]);
         else if(strcmp(argv[i],"--zone")==0 && i+1<argc) zone = argv[++i];
         else if(strcmp(argv[i],"--fan")==0 && i+1<argc)  FAN_ID = argv[++i];
-        else if(strcmp(argv[i],"--siren")==0 && i+1<argc) ALM_ID = argv[++i];
+        else if(strcmp(argv[i],"--alarm")==0 && i+1<argc) ALM_ID = argv[++i];
+        else if(strcmp(argv[i],"--barrier")==0 && i+1<argc) BAR_ID = argv[++i];
+
     }
     ZONE = zone;
 
@@ -179,9 +193,11 @@ int main(int argc, char** argv){
     if(!gM){ fprintf(stderr,"mosquitto_new fail\n"); return 2; }
 
     // subscribe na komande pa echo state
-    char t_cmd_fan[128], t_cmd_alm[128];
+    char t_cmd_fan[128], t_cmd_alm[128], t_cmd_barrier[128];
     snprintf(t_cmd_fan, sizeof t_cmd_fan, "garage/%s/cmd/fan",   ZONE);
     snprintf(t_cmd_alm, sizeof t_cmd_alm, "garage/%s/cmd/alarm", ZONE);
+    snprintf(t_cmd_barrier, sizeof t_cmd_barrier, "garage/%s/cmd/barrier", ZONE);
+
 
     mosquitto_message_callback_set(gM, on_message);
     if(mosquitto_connect(gM, host, port, 60) != MOSQ_ERR_SUCCESS){
@@ -189,6 +205,7 @@ int main(int argc, char** argv){
     }
     mosquitto_subscribe(gM, NULL, t_cmd_fan, 1);
     mosquitto_subscribe(gM, NULL, t_cmd_alm, 1);
+    mosquitto_subscribe(gM, NULL, t_cmd_barrier, 1);
 
     fprintf(stdout,"[sim] connected to %s:%d zone=%s\n", host, port, ZONE);
     fprintf(stdout,"[sim] scenario: normal -> CO rise -> TEMP spike -> VIB event -> recovery\n");
